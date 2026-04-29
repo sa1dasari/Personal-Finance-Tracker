@@ -1,16 +1,16 @@
 # Personal Finance Analyzer — Powered by Claude AI
 
-A Java CLI application that integrates with Anthropic's Claude API to produce a **comprehensive, one-shot financial analysis report** from your uploaded statements. No chat, no follow-up questions — just upload your files and get a full report.
+A Java CLI application that integrates with Anthropic's Claude API to produce a **comprehensive, one-shot financial analysis report** from your uploaded statements. Drop your statement files into the `inputs/` folder, run one command, and get a full report.
 
 ## What the Report Covers
 
-1. **Account & Balance Summary** — every account, balance, interest rate, and minimum payment  
-2. **Income & Cash Flow** — month-by-month income vs. total obligations  
-3. **Spending Breakdown** — transactions categorized (groceries, dining, subscriptions, transport, etc.)  
-4. **Actionable Spending Cuts** — specific recommendations with estimated monthly savings  
-5. **Debt Payoff Plans** — Avalanche (highest-interest-first) *and* Snowball (smallest-balance-first) side by side, with projected payoff dates and total interest saved  
-6. **Unified Debt-Free Timeline** — one merged timeline across all debts  
-7. **Debt Consolidation Opportunities** — balance-transfer or consolidation flags where applicable  
+1. **Account & Balance Summary** — every account, balance, interest rate, and minimum payment
+2. **Income & Cash Flow** — month-by-month income vs. total obligations
+3. **Spending Breakdown** — transactions categorized (groceries, dining, subscriptions, transport, etc.)
+4. **Actionable Spending Cuts** — specific recommendations with estimated monthly savings
+5. **Debt Payoff Plans** — Avalanche (highest-interest-first) *and* Snowball (smallest-balance-first) side by side, with projected payoff dates and total interest saved
+6. **Unified Debt-Free Timeline** — one merged timeline across all debts
+7. **Debt Consolidation Opportunities** — balance-transfer or consolidation flags where applicable
 8. **Monthly Savings Recommendation** — realistic target with allocation suggestions
 
 ## Setup
@@ -22,21 +22,30 @@ A Java CLI application that integrates with Anthropic's Claude API to produce a 
 3. Create an API key
 4. Copy your key (starts with `sk-ant-`)
 
-### 2. Set Environment Variable
+### 2. Set the Environment Variable
 
-**PowerShell (Windows):**
+**PowerShell (current session):**
 ```powershell
-$env:ANTHROPIC_API_KEY='sk-ant-your-key-here'
+$env:ANTHROPIC_API_KEY="sk-ant-your-key-here"
 ```
 
-**Git Bash / Standard Shell:**
+**Permanent (Windows):**
+```powershell
+setx ANTHROPIC_API_KEY "sk-ant-your-key-here"
+```
+Then close and reopen your terminal/IDE.
+
+**IntelliJ IDEA Run Configuration:**
+1. `Run` -> `Edit Configurations...`
+2. Select your `FinanceCoachApp` configuration
+3. In **Environment variables**, add `ANTHROPIC_API_KEY=sk-ant-your-key-here`
+4. Apply and Run
+
+**macOS / Linux:**
 ```bash
 export ANTHROPIC_API_KEY='sk-ant-your-key-here'
 ```
-
-**Permanent (add to your system environment):**
-- Windows: System Properties -> Environment Variables -> New User Variable
-- Linux/Mac: Add to `~/.bashrc` or `~/.zshrc`
+(Add to `~/.bashrc` or `~/.zshrc` to persist.)
 
 ### 3. Install Dependencies
 
@@ -49,69 +58,35 @@ mvn clean install
 
 ```
 Personal-Finance-Tracker/
-  input/    <-- PUT YOUR STATEMENT FILES HERE  (CSV, TXT)
-  output/   <-- REPORTS ARE SAVED HERE automatically
-  src/
+  src/main/java/com/personalfinance/
+    inputs/    <-- DROP YOUR STATEMENT FILES HERE  (CSV, TXT, PDF)
+    output/    <-- TIMESTAMPED REPORTS LAND HERE
+    app/        - FinanceCoachApp (main entry point)
+    services/   - DocumentCoach, FinanceCoach, StatefulCoach
+    models/     - FinanceData
+    utils/      - StatementProcessor (PDF/text extraction)
   pom.xml
-  ...
 ```
 
-- **`input/`** — drop any number of `.csv` or `.txt` bank / credit card / loan statement files here before running the app.  
-- **`output/`** — each run produces a timestamped file like `report_20260429_143022.txt` containing the full analysis report.
-
-Both folders are created automatically the first time you run the app if they don't exist yet.
+- **`inputs/`** — drop any number of `.csv`, `.txt`, or `.pdf` bank / credit card / loan statement files here. Both directories are auto-created on first run.
+- **`output/`** — each run produces a timestamped file like `report_20260429_143022.txt`.
 
 ---
 
 ## Usage
 
-### Run the Analyzer (recommended)
+### Run the Analyzer
 
 ```powershell
-mvn clean compile exec:java -Dexec.mainClass="com.personalfinance.app.FinanceCoachApp"
+mvn exec:java "-Dexec.mainClass=com.personalfinance.app.FinanceCoachApp"
 ```
 
-The app will prompt you interactively:
+The app will:
 
-```
-============================================================
-         Personal Finance Analyzer — Powered by Claude AI
-============================================================
-
-  Statement 1 path (or blank to finish): C:\Users\you\Downloads\checking.csv
-  ✓  Added: checking.csv
-  Statement 2 path (or blank to finish): C:\Users\you\Downloads\credit_card.csv
-  ✓  Added: credit_card.csv
-  Statement 3 path (or blank to finish):
-
-  Extra context: Monthly take-home pay is $4,200
-
-  Processing 2 statement(s) — this may take a moment...
-  [Full report printed here]
-```
-
-### Command-line shortcut (multiple files at once)
-
-```powershell
-mvn compile exec:java -Dexec.mainClass="com.personalfinance.services.DocumentCoach" `
-  -Dexec.args="checking.csv credit_card.csv loan.csv"
-```
-
-### From Java code
-
-```java
-import com.personalfinance.services.DocumentCoach;
-import java.util.List;
-
-DocumentCoach coach = new DocumentCoach();
-
-// Analyze multiple statements in one shot
-String report = coach.analyzeMultipleDocuments(
-    List.of("checking.csv", "credit_card.csv", "loan.csv"),
-    "My monthly take-home pay is $4,200."  // optional extra context
-);
-System.out.println(report);
-```
+1. Auto-discover all supported files in `src/main/java/com/personalfinance/inputs/`
+2. List them on screen
+3. Ask one optional question (extra context — press Enter to skip)
+4. Send everything to Claude and print/save the report
 
 ## Architecture
 
@@ -120,120 +95,56 @@ System.out.println(report);
 ```
 com.personalfinance/
 +-- app/
-|   +-- FinanceCoachApp.java         # Interactive CLI (main entry point)
+|   +-- FinanceCoachApp.java        # Auto-scans inputs/, calls DocumentCoach, writes to output/
 +-- services/
-|   +-- DocumentCoach.java           # Multi-statement one-shot analysis (core engine)
-|   +-- FinanceCoach.java            # Single-turn utility
+|   +-- DocumentCoach.java          # Multi-statement one-shot analysis (core engine)
+|   +-- FinanceCoach.java           # Single-turn utility
+|   +-- StatefulCoach.java          # Multi-turn conversation helper
 +-- models/
-|   +-- FinanceData.java             # Data structures
+|   +-- FinanceData.java            # Data structures
 +-- utils/
-    +-- StatementProcessor.java      # File reading utilities
+    +-- StatementProcessor.java     # File reading + PDF text extraction (PDFBox)
 ```
 
 ### Core Classes
 
-1. **FinanceCoachApp** (`app`) — Interactive CLI  
-   Prompts for file paths + optional context, then calls DocumentCoach and prints the report.
+1. **FinanceCoachApp** (`app`) — Main CLI
+   - Auto-discovers all `.csv`/`.txt`/`.pdf` files in `inputs/`
+   - Validates `ANTHROPIC_API_KEY` is set before calling Claude
+   - Shows a heartbeat every 5s while Claude responds
+   - Saves the final report to `output/report_<timestamp>.txt`
 
-2. **DocumentCoach** (`services`) — Multi-statement analysis engine  
-   Reads all files, concatenates them into one request, and sends to Claude for a full report.  
-   Key method: `analyzeMultipleDocuments(List<String> filePaths, String extraContext)`
+2. **DocumentCoach** (`services`) — Multi-statement analysis engine
+   Reads all files, concatenates them into one request, and sends to Claude for a full report.
+   Key methods:
+   - `analyzeMultipleDocuments(List<String> filePaths, String extraContext)`
+   - `buildCombinedPayload(List<String> filePaths, String extraContext)` (no API call; useful for inspection)
 
-3. **FinanceCoach** (`services`) — Simple single-turn utility  
+3. **FinanceCoach** (`services`) — Simple single-turn utility
    Quick single-question interface with no file handling.
 
-4. **FinanceData** (`models`) — Data structures  
+4. **StatefulCoach** (`services`) — Multi-turn conversation helper
+   Maintains chat history across calls.
+
+5. **FinanceData** (`models`) — Data structures
    Account, Transaction, RecurringExpense, PayoffPlan models.
 
-5. **StatementProcessor** (`utils`) — File utilities  
-   Text extraction and base64 encoding, MIME type detection.
+6. **StatementProcessor** (`utils`) — File utilities
+   Text extraction (UTF-8 read + PDFBox PDF extraction), base64 encoding, MIME type detection.
 
-## Example Workflows
-
-### Quick single-file analysis
-```java
-DocumentCoach coach = new DocumentCoach();
-System.out.println(coach.analyzeStatement("bank_statement.csv"));
-```
-
-### Multiple files with extra context
-```java
-DocumentCoach coach = new DocumentCoach();
-String report = coach.analyzeMultipleDocuments(
-    List.of("checking.csv", "visa_card.csv", "student_loan.csv"),
-    "Monthly take-home is $4,200. The student loan rate is 6.5%."
-);
-System.out.println(report);
-```
-
-## Dependency Details
-
-- **anthropic-java:2.26.0** - Claude API SDK
-- **commons-codec:1.15** - Base64 encoding
-- **gson:2.10.1** - JSON processing
-- **slf4j** - Logging framework
-
-## System Prompt
-
-The finance coach uses this core system prompt:
-
-```
-You are a personal finance coach...
-Parse and unify all data into a single financial picture.
-Categorize all transactions and identify recurring expenses.
-For every debt or loan, extract the balance, interest rate, and minimum payment.
-Then:
-(1) Build month-by-month cash flow summary
-(2) Identify spending cuts
-(3) Present avalanche & snowball payoff plans
-(4) Layer in loan schedules
-(5) Recommend monthly savings target
-Always present numbers in clear tables.
-Never retain data beyond the current session.
-```
+---
 
 ## Privacy & Security
 
-**Important:**
-- Never hardcode API keys in source code
-- Always use environment variables
-- API keys are never logged or stored
-- Conversation history is cleared on session end
-- No data is persisted beyond the current conversation
-
-## Troubleshooting
-
-### "ANTHROPIC_API_KEY not set"
-```powershell
-$env:ANTHROPIC_API_KEY='sk-ant-...'
-mvn clean compile exec:java ...
-```
-
-### "API Rate Limited"
-- Standard free tier has rate limits
-- Wait before retrying or upgrade account
-
-### "File not processing"
-- Verify the file path is correct and accessible
-- Use supported text-based statement files such as CSV or TXT
-
-### Maven Build Issues
-```bash
-mvn clean install -U  # Force update dependencies
-```
-
-## Building for Production
-
-Create an executable JAR:
-```bash
-mvn clean package
-java -jar target/personal-finance-tracker-1.0.0-shaded.jar
-```
+- Never hardcode API keys in source code — always use environment variables
+- API keys are read from `ANTHROPIC_API_KEY`, never logged
+- No persistent data store — files are read on demand from `inputs/`
+- The only artifact written is the report under `output/`
 
 ## Further Development
 
-- Add CSV/Excel statement parsing
-- Implement banking API integrations (Plaid, Open Banking)
+- Add CSV/Excel statement parsing helpers
+- Banking API integrations (Plaid, Open Banking)
 - Web UI with Spring Boot
 - Database persistence (SQLite, PostgreSQL)
 - Automated statement imports
@@ -253,4 +164,3 @@ MIT License - See LICENSE file for details
 ---
 
 Built with Claude API by Anthropic
-
